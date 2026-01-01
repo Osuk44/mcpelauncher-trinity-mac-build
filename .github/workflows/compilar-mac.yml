@@ -19,7 +19,6 @@ jobs:
         run: |
           cd mcpelauncher
           mkdir build && cd build
-          # Añadimos la bandera para forzar compatibilidad con código antiguo
           cmake .. -GNinja \
             -DCMAKE_BUILD_TYPE=Release \
             -DENABLE_DEV_INSTALL=ON \
@@ -30,14 +29,6 @@ jobs:
         run: |
           cd mcpelauncher/build
           ninja
-
-      - name: Subir el resultado (Artefacto)
-        run: |
-          # Este paso comprime el binario para que sea fácil de descargar
-          mkdir -p output
-          cp mcpelauncher/build/mcpelauncher-client output/ || true
-          # Intentamos copiar también el archivo de la UI si existe
-          cp -r mcpelauncher/build/*.app output/ || true
 
       - name: Organizar archivos finales
         run: |
@@ -52,7 +43,4 @@ jobs:
         with:
           name: Minecraft-Mac-Intel
           path: final_output/
-          if-no-files-found: error # Esto nos avisará si realmente no se creó nada
-        with:
-          name: Minecraft-Mac-Intel
-          path: output/
+          if-no-files-found: error
