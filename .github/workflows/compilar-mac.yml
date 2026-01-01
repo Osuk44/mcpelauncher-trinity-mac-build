@@ -19,10 +19,11 @@ jobs:
         run: |
           cd mcpelauncher
           mkdir build && cd build
-          # Usamos Qt6 y optimizamos para Release
+          # Añadimos la bandera para forzar compatibilidad con código antiguo
           cmake .. -GNinja \
             -DCMAKE_BUILD_TYPE=Release \
             -DENABLE_DEV_INSTALL=ON \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
             -DCMAKE_PREFIX_PATH=$(brew --prefix qt6)
 
       - name: Compilar
