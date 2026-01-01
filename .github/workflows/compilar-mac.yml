@@ -1,0 +1,45 @@
+name: Compilar para Mac Intel
+on: [workflow_dispatch]
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    
+    steps:
+      - name: Instalar herramientas de compilación
+        run: |
+          brew update
+          brew install cmake ninja pkg-config qt6 sdl2 libpng jpeg-turbo libusb
+
+      - name: Clonar el código desde Codeberg
+        run: |
+          git clone --recursive https://codeberg.org/javiercplus/mcpelauncher-client-extend.git mcpelauncher
+
+      - name: Configurar Compilación (CMake)
+        run: |
+          cd mcpelauncher
+          mkdir build && cd build
+          # Usamos Qt6 y optimizamos para Release
+          cmake .. -GNinja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DENABLE_DEV_INSTALL=ON \
+            -DCMAKE_PREFIX_PATH=$(brew --prefix qt6)
+
+      - name: Compilar
+        run: |
+          cd mcpelauncher/build
+          ninja
+
+      - name: Subir el resultado (Artefacto)
+        run: |
+          # Este paso comprime el binario para que sea fácil de descargar
+          mkdir -p output
+          cp mcpelauncher/build/mcpelauncher-client output/ || true
+          # Intentamos copiar también el archivo de la UI si existe
+          cp -r mcpelauncher/build/*.app output/ || true
+
+      - name: Publicar Archivo
+        uses: actions/upload-artifact@v4
+        with:
+          name: Minecraft-Mac-Intel
+          path: output/
