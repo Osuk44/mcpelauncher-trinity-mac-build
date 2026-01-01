@@ -39,8 +39,20 @@ jobs:
           # Intentamos copiar también el archivo de la UI si existe
           cp -r mcpelauncher/build/*.app output/ || true
 
+      - name: Organizar archivos finales
+        run: |
+          mkdir -p final_output
+          # Buscamos el binario principal y lo movemos a la carpeta de salida
+          find mcpelauncher/build -name "mcpelauncher-client" -exec cp {} final_output/ \;
+          # Buscamos si se creó una aplicación .app y la copiamos
+          find mcpelauncher/build -name "*.app" -exec cp -r {} final_output/ \;
+
       - name: Publicar Archivo
         uses: actions/upload-artifact@v4
+        with:
+          name: Minecraft-Mac-Intel
+          path: final_output/
+          if-no-files-found: error # Esto nos avisará si realmente no se creó nada
         with:
           name: Minecraft-Mac-Intel
           path: output/
