@@ -1,45 +1,44 @@
-name: Compilar Trinity Intel - Pack Final
+name: Compilar Solo Error Reporter (Intel)
 on: [workflow_dispatch]
 
 jobs:
-  build-launcher:
+  build-error-reporter:
     runs-on: macos-15-intel
     
     steps:
       - name: 1. Instalar Dependencias
         run: |
           brew update
-          brew install cmake ninja pkg-config qt6
+          brew install cmake ninja qt6
 
-      - name: 2. Compilar y Recolectar Trinity
+      - name: 2. Compilar mcpelauncher-error
         run: |
-          # Clonar y entrar
-          git clone https://github.com/Trinity-LA/Trinity-Launcher.git
-          cd Trinity-Launcher
-          
-          # Aplicar parche de texto
-          sed -i '' 's/QDialogButtonBox::Cancelar/QDialogButtonBox::Cancel/g' src/TrinityLib/ui/windows/launcher_window.cpp || true
-          
-          # Compilar
+          # Clonamos el repo del motor
+          git clone --recursive https://codeberg.org/javiercplus/mcpelauncher-client-extend.git mcpelauncher
+          cd mcpelauncher
           mkdir build && cd build
+          
+          # Configuramos el proyecto
           cmake .. -GNinja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_OSX_ARCHITECTURES="x86_64" \
             -DCMAKE_PREFIX_PATH=$(brew --prefix qt6) \
             -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
             -Wno-dev
-          ninja
           
-          # Recolectar archivos inmediatamente (estamos en Trinity-Launcher/build)
-          mkdir -p ../../final_launcher
-          cp app/trinchete ../../final_launcher/ 2>/dev/null || true
-          cp app/trinito ../../final_launcher/ 2>/dev/null || true
-          
-          # Dar permisos
-          chmod +x ../../final_launcher/*
+          # LA CLAVE: Solo compilamos el blanco específico del reportero de errores
+          # Esto es mucho más rápido que compilar todo el cliente
+          ninja mcpelauncher-error
 
-      - name: 3. Subir Pack Trinity
+      - name: 3. Recolectar Archivo
+        run: |
+          mkdir -p final_error
+          # El binario suele quedar en la raíz de la carpeta build o en una subcarpeta
+          find mcpelauncher/build -name "mcpelauncher-error" -type f -exec cp {} final_error/ \;
+          chmod +x final_error/*
+
+      - name: 4. Subir Pieza Faltante
         uses: actions/upload-artifact@v4
         with:
-          name: Trinity-Intel-Pack-Completo
-          path: final_launcher/
+          name: Minecraft-Error-Reporter-Intel
+          path: final_error/
