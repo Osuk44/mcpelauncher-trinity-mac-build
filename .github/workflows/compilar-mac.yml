@@ -1,19 +1,20 @@
-name: Compilar TODO para Mac Intel (x86_64)
+name: Compilar TODO para Mac Intel (Cross-Compile)
 on: [workflow_dispatch]
 
 jobs:
-  build-macos-intel:
-    runs-on: macos-13  # Forzamos servidor Intel
+  build-macos:
+    runs-on: macos-latest # Usamos la versión actual disponible
     
     steps:
       - name: 1. Instalar Dependencias
         run: |
           brew update
+          # Instalamos las librerías necesarias
           brew install cmake ninja pkg-config qt6 sdl2 libzip libusb
 
-      - name: 2. Compilar mcpelauncher-client (EL MOTOR - FIX INTEL)
+      - name: 2. Compilar mcpelauncher-client (Motor x86_64)
         run: |
-          git clone --recursive https://github.com/minecraft-linux/mcpelauncher-manifest.git mcpelauncher
+          git clone --recursive https://codeberg.org/javiercplus/mcpelauncher-client-extend.git mcpelauncher
           cd mcpelauncher
           mkdir build && cd build
           cmake .. -GNinja \
@@ -22,46 +23,53 @@ jobs:
             -DCMAKE_POLICY_VERSION_MINIMUM=3.5
           ninja
 
-      - name: 3. Compilar mcpelauncher-extract
+      - name: 3. Compilar mcpelauncher-extract (x86_64)
         run: |
           git clone https://github.com/minecraft-linux/mcpelauncher-extract.git
           cd mcpelauncher-extract
           mkdir build && cd build
-          cmake .. -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="x86_64" -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+          cmake .. -GNinja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES="x86_64" \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5
           ninja
 
-      - name: 4. Compilar mcpelauncher-webview
+      - name: 4. Compilar mcpelauncher-webview (x86_64)
         run: |
           git clone --recursive https://github.com/minecraft-linux/mcpelauncher-webview.git
           cd mcpelauncher-webview
           mkdir build && cd build
-          cmake .. -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="x86_64" \
-            -DCMAKE_PREFIX_PATH=$(brew --prefix qt6) -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+          cmake .. -GNinja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES="x86_64" \
+            -DCMAKE_PREFIX_PATH=$(brew --prefix qt6) \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5
           ninja
 
-      - name: 5. Compilar Trinity Launcher (LA INTERFAZ)
+      - name: 5. Compilar Trinity Launcher (Interfaz x86_64)
         run: |
           git clone https://github.com/Trinity-LA/Trinity-Launcher.git
           cd Trinity-Launcher
+          # Aplicamos el parche de idioma "Cancelar" -> "Cancel"
           sed -i '' 's/QDialogButtonBox::Cancelar/QDialogButtonBox::Cancel/g' src/TrinityLib/ui/windows/launcher_window.cpp
           mkdir build && cd build
-          cmake .. -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="x86_64" \
-            -DCMAKE_PREFIX_PATH=$(brew --prefix qt6) -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+          cmake .. -GNinja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES="x86_64" \
+            -DCMAKE_PREFIX_PATH=$(brew --prefix qt6) \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5
           ninja
 
-      - name: 6. Recolectar Archivos (Búsqueda Agresiva)
+      - name: 6. Recolectar Archivos (Búsqueda General)
         run: |
           mkdir -p final_output
-          # Copiamos todos los ejecutables encontrados para no fallar
+          # Buscamos en todas las subcarpetas para no perder ningún ejecutable
           find . -type f -name "mcpelauncher-client" -exec cp {} final_output/ \;
           find . -type f -name "mcpelauncher-extract" -exec cp {} final_output/ \;
           find . -type f -name "mcpelauncher-webview" -exec cp {} final_output/ \;
           find . -type f -name "mcpelauncher-ui-qt" -exec cp {} final_output/ \;
-          # También buscamos si se creó la carpeta .app
+          # Si se generó el paquete .app (formato estándar de Mac) lo incluimos
           find . -name "*.app" -exec cp -r {} final_output/ \;
 
-      - name: 7. Subir Artefacto
+      - name: 7. Publicar Pack Intel
         uses: actions/upload-artifact@v4
         with:
-          name: Minecraft-Mac-Intel-COMPLETO
+          name: Minecraft-Mac-Intel-Full-Pack
           path: final_output/
