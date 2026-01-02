@@ -1,80 +1,71 @@
-name: Compilar TODO para Mac Intel (Cross-Compile)
+name: Compilar Pack Intel (Fix cURL)
 on: [workflow_dispatch]
 
 jobs:
   build-macos:
-    runs-on: macos-latest # Usamos la versión actual disponible
+    runs-on: macos-latest
     
     steps:
-      - name: 1. Instalar Dependencias
+      - name: 1. Instalar Dependencias Reales
         run: |
           brew update
-          # Instalamos las librerías necesarias
-          brew install cmake ninja pkg-config qt6 sdl2 libzip libusb
+          # Añadimos curl y openssl explícitamente para el sistema
+          brew install cmake ninja pkg-config qt6 sdl2 libzip libusb openssl curl
 
-      - name: 2. Compilar mcpelauncher-client (Fix dependencias)
+      - name: 2. Compilar mcpelauncher-client (Fix cURL)
         run: |
           git clone --recursive https://codeberg.org/javiercplus/mcpelauncher-client-extend.git mcpelauncher
           cd mcpelauncher
           mkdir build && cd build
-          # Añadimos -DUSE_SYSTEM_CURL=ON para que no intente compilar cURL y use el de la Mac
-          # También ignoramos los errores de variables manuales
+          
+          # Definimos las rutas de cURL de Homebrew para que CMake no se pierda
+          export CURL_ROOT=$(brew --prefix curl)
+          
           cmake .. -GNinja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_OSX_ARCHITECTURES="x86_64" \
             -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
             -DUSE_SYSTEM_CURL=ON \
-            -DUSE_SYSTEM_ZLIB=ON \
             -DENABLE_XBL_WEBVIEW=ON
           ninja
-            
 
-      - name: 3. Compilar mcpelauncher-extract (x86_64)
+      - name: 3. Compilar mcpelauncher-extract
         run: |
           git clone https://github.com/minecraft-linux/mcpelauncher-extract.git
           cd mcpelauncher-extract
           mkdir build && cd build
-          cmake .. -GNinja -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_OSX_ARCHITECTURES="x86_64" \
-            -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+          cmake .. -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="x86_64" -DCMAKE_POLICY_VERSION_MINIMUM=3.5
           ninja
 
-      - name: 4. Compilar mcpelauncher-webview (x86_64)
+      - name: 4. Compilar mcpelauncher-webview
         run: |
           git clone --recursive https://github.com/minecraft-linux/mcpelauncher-webview.git
           cd mcpelauncher-webview
           mkdir build && cd build
-          cmake .. -GNinja -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_OSX_ARCHITECTURES="x86_64" \
-            -DCMAKE_PREFIX_PATH=$(brew --prefix qt6) \
-            -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+          cmake .. -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="x86_64" \
+            -DCMAKE_PREFIX_PATH=$(brew --prefix qt6) -DCMAKE_POLICY_VERSION_MINIMUM=3.5
           ninja
 
-      - name: 5. Compilar Trinity Launcher (Interfaz x86_64)
+      - name: 5. Compilar Trinity Launcher
         run: |
           git clone https://github.com/Trinity-LA/Trinity-Launcher.git
           cd Trinity-Launcher
-          # Aplicamos el parche de idioma "Cancelar" -> "Cancel"
           sed -i '' 's/QDialogButtonBox::Cancelar/QDialogButtonBox::Cancel/g' src/TrinityLib/ui/windows/launcher_window.cpp
           mkdir build && cd build
-          cmake .. -GNinja -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_OSX_ARCHITECTURES="x86_64" \
-            -DCMAKE_PREFIX_PATH=$(brew --prefix qt6) \
-            -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+          cmake .. -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="x86_64" \
+            -DCMAKE_PREFIX_PATH=$(brew --prefix qt6) -DCMAKE_POLICY_VERSION_MINIMUM=3.5
           ninja
 
-      - name: 6. Recolectar Archivos (Búsqueda General)
+      - name: 6. Recolectar Pack (Busqueda Total)
         run: |
           mkdir -p final_output
-          # Buscamos en todas las subcarpetas para no perder ningún ejecutable
           find . -type f -name "mcpelauncher-client" -exec cp {} final_output/ \;
           find . -type f -name "mcpelauncher-extract" -exec cp {} final_output/ \;
           find . -type f -name "mcpelauncher-webview" -exec cp {} final_output/ \;
           find . -type f -name "mcpelauncher-ui-qt" -exec cp {} final_output/ \;
-          # Si se generó el paquete .app (formato estándar de Mac) lo incluimos
           find . -name "*.app" -exec cp -r {} final_output/ \;
 
-      - name: 7. Publicar Pack Intel
+      - name: 7. Publicar
         uses: actions/upload-artifact@v4
         with:
           name: Minecraft-Mac-Intel-Full-Pack
