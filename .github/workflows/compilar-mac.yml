@@ -1,4 +1,4 @@
-name: Compilar Mac Intel - Fix Final (Darwin Source)
+name: Compilar Mac Intel - Fix Linker
 on: [workflow_dispatch]
 
 jobs:
@@ -6,32 +6,36 @@ jobs:
     runs-on: macos-latest
     
     steps:
-      - name: 1. Instalar Herramientas y Librerías del Sistema
+      - name: 1. Instalar Herramientas (Sin forzar librerías externas)
         run: |
           brew update
-          brew install cmake ninja pkg-config qt6 sdl2 libzip libusb openssl curl
+          # Instalamos solo lo básico para construir. 
+          # NO usamos curl/openssl de brew para linkear porque son ARM.
+          brew install cmake ninja pkg-config qt6 libzip libusb
 
-      - name: 2. Compilar Motor (Client) - Fix Headers Mac
+      - name: 2. Compilar Motor (Client) - Full Internal Build
         run: |
           git clone --recursive https://codeberg.org/javiercplus/mcpelauncher-client-extend.git mcpelauncher
           cd mcpelauncher
           mkdir build && cd build
           
-          # LA SOLUCIÓN:
-          # 1. -arch x86_64: Para que sea compatible con Mac Intel.
-          # 2. -D_DARWIN_C_SOURCE: Para desbloquear 'udata' y 'kevent'.
-          export CFLAGS="-arch x86_64 -D_DARWIN_C_SOURCE"
-          export CXXFLAGS="-arch x86_64 -D_DARWIN_C_SOURCE"
+          # FORZAMOS ARQUITECTURA INTEL EN TODO
+          # Añadimos -Wno-unused-command-line-argument para que no se queje de banderas repetidas
+          export CFLAGS="-arch x86_64 -D_DARWIN_C_SOURCE -Wno-unused-command-line-argument"
+          export CXXFLAGS="-arch x86_64 -D_DARWIN_C_SOURCE -Wno-unused-command-line-argument"
           export LDFLAGS="-arch x86_64"
 
+          # Configuración:
+          # 1. Quitamos USE_SYSTEM_CURL/ZLIB (ahora construirá los suyos propios en x86_64)
+          # 2. CMAKE_ASM_COMPILER_WORKS=1: Evita que falle al chequear el ensamblador
           cmake .. -GNinja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_OSX_ARCHITECTURES="x86_64" \
             -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
-            -DUSE_SYSTEM_CURL=ON \
-            -DUSE_SYSTEM_ZLIB=ON \
             -DENABLE_XBL_WEBVIEW=ON \
+            -DCMAKE_ASM_COMPILER_WORKS=1 \
             -Wno-dev
+          
           ninja
 
       - name: 3. Compilar Herramientas (Extract y Webview)
