@@ -1,4 +1,4 @@
-name: Compilar Mac Intel - Fix Final
+name: Compilar Mac Intel - Fix Final (Darwin Source)
 on: [workflow_dispatch]
 
 jobs:
@@ -11,19 +11,17 @@ jobs:
           brew update
           brew install cmake ninja pkg-config qt6 sdl2 libzip libusb openssl curl
 
-      - name: 2. Compilar Motor (Client) - Fix Mac Kqueue
+      - name: 2. Compilar Motor (Client) - Fix Headers Mac
         run: |
           git clone --recursive https://codeberg.org/javiercplus/mcpelauncher-client-extend.git mcpelauncher
           cd mcpelauncher
-          
-          # PARCHE PARA MAC: Corregir el error de 'udata' en kqueue
-          sed -i '' 's/\.udata =/.ext[0] =/g' simple-ipc/src/unix/kqueue_io_handler.cpp || true
-          
           mkdir build && cd build
           
-          # Mantenemos las banderas de arquitectura
-          export CFLAGS="-arch x86_64"
-          export CXXFLAGS="-arch x86_64"
+          # LA SOLUCIÓN:
+          # 1. -arch x86_64: Para que sea compatible con Mac Intel.
+          # 2. -D_DARWIN_C_SOURCE: Para desbloquear 'udata' y 'kevent'.
+          export CFLAGS="-arch x86_64 -D_DARWIN_C_SOURCE"
+          export CXXFLAGS="-arch x86_64 -D_DARWIN_C_SOURCE"
           export LDFLAGS="-arch x86_64"
 
           cmake .. -GNinja \
