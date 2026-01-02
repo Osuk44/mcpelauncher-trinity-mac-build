@@ -12,16 +12,22 @@ jobs:
           # Instalamos las librerías necesarias
           brew install cmake ninja pkg-config qt6 sdl2 libzip libusb
 
-      - name: 2. Compilar mcpelauncher-client (Motor x86_64)
+      - name: 2. Compilar mcpelauncher-client (Fix dependencias)
         run: |
           git clone --recursive https://codeberg.org/javiercplus/mcpelauncher-client-extend.git mcpelauncher
           cd mcpelauncher
           mkdir build && cd build
+          # Añadimos -DUSE_SYSTEM_CURL=ON para que no intente compilar cURL y use el de la Mac
+          # También ignoramos los errores de variables manuales
           cmake .. -GNinja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_OSX_ARCHITECTURES="x86_64" \
-            -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DUSE_SYSTEM_CURL=ON \
+            -DUSE_SYSTEM_ZLIB=ON \
+            -DENABLE_XBL_WEBVIEW=ON
           ninja
+            
 
       - name: 3. Compilar mcpelauncher-extract (x86_64)
         run: |
