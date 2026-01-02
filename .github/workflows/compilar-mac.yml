@@ -1,4 +1,4 @@
-name: Compilar Solo Launcher Trinity (Intel)
+name: Compilar Trinity Intel - Pack Final
 on: [workflow_dispatch]
 
 jobs:
@@ -6,20 +6,22 @@ jobs:
     runs-on: macos-15-intel
     
     steps:
-      - name: 1. Instalar Qt6 (Necesario para la interfaz)
+      - name: 1. Instalar Dependencias
         run: |
           brew update
           brew install cmake ninja pkg-config qt6
 
-      - name: 2. Compilar Trinity (Interfaz)
+      - name: 2. Compilar y Recolectar Trinity
         run: |
+          # Clonar y entrar
           git clone https://github.com/Trinity-LA/Trinity-Launcher.git
           cd Trinity-Launcher
-          # Aplicamos el parche de traducción para evitar errores de compilación
+          
+          # Aplicar parche de texto
           sed -i '' 's/QDialogButtonBox::Cancelar/QDialogButtonBox::Cancel/g' src/TrinityLib/ui/windows/launcher_window.cpp || true
           
+          # Compilar
           mkdir build && cd build
-          # Configuramos apuntando a las librerías de Qt6 de la Mac Intel
           cmake .. -GNinja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_OSX_ARCHITECTURES="x86_64" \
@@ -28,26 +30,16 @@ jobs:
             -Wno-dev
           ninja
           
-          - name: 3. Recolectar Launcher y Soporte (Nombres Correctos)
-          run: |
-          mkdir -p final_launcher
+          # Recolectar archivos inmediatamente (estamos en Trinity-Launcher/build)
+          mkdir -p ../../final_launcher
+          cp app/trinchete ../../final_launcher/ 2>/dev/null || true
+          cp app/trinito ../../final_launcher/ 2>/dev/null || true
           
-          # Según el log, los archivos están en Trinity-Launcher/build/app/
-          # Los copiamos con sus nombres reales
-          cp Trinity-Launcher/build/app/trinchete final_launcher/ 2>/dev/null || true
-          cp Trinity-Launcher/build/app/trinito final_launcher/ 2>/dev/null || true
-          
-          # Por si acaso el sistema les puso extensiones diferentes en Mac
-          # buscamos cualquier cosa que se llame trinchete o trinito en la carpeta build
-          find Trinity-Launcher/build -name "trinchete" -type f -exec cp {} final_launcher/ \;
-          find Trinity-Launcher/build -name "trinito" -type f -exec cp {} final_launcher/ \;
+          # Dar permisos
+          chmod +x ../../final_launcher/*
 
-          # Dar permisos de ejecución antes de empaquetar
-          chmod +x final_launcher/*
-
-      - name: 4. Subir Pack Trinity Final
+      - name: 3. Subir Pack Trinity
         uses: actions/upload-artifact@v4
         with:
           name: Trinity-Intel-Pack-Completo
           path: final_launcher/
-      
