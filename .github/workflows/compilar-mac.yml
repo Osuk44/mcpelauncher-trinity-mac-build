@@ -1,4 +1,4 @@
-name: Compilar Trinity, Extract y Webview (Fix CMake)
+name: Compilar Trinity (Fix Idioma)
 on: [workflow_dispatch]
 
 jobs:
@@ -16,10 +16,7 @@ jobs:
           git clone https://github.com/minecraft-linux/mcpelauncher-extract.git
           cd mcpelauncher-extract
           mkdir build && cd build
-          # Añadida bandera de compatibilidad
-          cmake .. -GNinja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+          cmake .. -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5
           ninja
 
       - name: 3. Compilar mcpelauncher-webview
@@ -27,19 +24,18 @@ jobs:
           git clone --recursive https://github.com/minecraft-linux/mcpelauncher-webview.git
           cd mcpelauncher-webview
           mkdir build && cd build
-          # Añadida bandera de compatibilidad y ruta de Qt6
-          cmake .. -GNinja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
-            -DCMAKE_PREFIX_PATH=$(brew --prefix qt6)
+          cmake .. -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_PREFIX_PATH=$(brew --prefix qt6)
           ninja
 
-      - name: 4. Compilar Trinity Launcher
+      - name: 4. Compilar Trinity Launcher (Con Parche)
         run: |
           git clone https://github.com/Trinity-LA/Trinity-Launcher.git
           cd Trinity-Launcher
+          
+          # EL PARCHE: Cambiamos "Cancelar" por "Cancel" en el archivo que dio error
+          sed -i '' 's/QDialogButtonBox::Cancelar/QDialogButtonBox::Cancel/g' src/TrinityLib/ui/windows/launcher_window.cpp
+          
           mkdir build && cd build
-          # Añadida bandera de compatibilidad y ruta de Qt6
           cmake .. -GNinja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
@@ -51,13 +47,13 @@ jobs:
           mkdir -p final_output
           find mcpelauncher-extract/build -name "mcpelauncher-extract" -exec cp {} final_output/ \;
           find mcpelauncher-webview/build -name "mcpelauncher-webview" -exec cp {} final_output/ \;
+          # El ejecutable de Trinity suele llamarse trinity-launcher o similar
+          find Trinity-Launcher/build -name "trinity-launcher" -exec cp {} final_output/ \;
           find Trinity-Launcher/build -name "mcpelauncher-ui-qt" -exec cp {} final_output/ \;
-          # Copiar archivos .app si existen para Mac
           find . -name "*.app" -exec cp -r {} final_output/ \;
 
       - name: 6. Publicar
         uses: actions/upload-artifact@v4
         with:
-          name: Minecraft-Mac-Trinity-Webview-Extract
+          name: Minecraft-Mac-Trinity-Final-Fix
           path: final_output/
-          if-no-files-found: error
