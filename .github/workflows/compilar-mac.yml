@@ -27,17 +27,27 @@ jobs:
             -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
             -Wno-dev
           ninja
-
-      - name: 3. Recolectar Launcher
-        run: |
+          
+          - name: 3. Recolectar Launcher y Soporte (Nombres Correctos)
+          run: |
           mkdir -p final_launcher
-          # Buscamos el ejecutable de la interfaz
-          find . -name "mcpelauncher-ui-qt" -type f -perm +111 -exec cp {} final_launcher/ \;
-          # También buscamos si se generó como una App de Mac
-          cp -R Trinity-Launcher/build/*.app final_launcher/ 2>/dev/null || true
+          
+          # Según el log, los archivos están en Trinity-Launcher/build/app/
+          # Los copiamos con sus nombres reales
+          cp Trinity-Launcher/build/app/trinchete final_launcher/ 2>/dev/null || true
+          cp Trinity-Launcher/build/app/trinito final_launcher/ 2>/dev/null || true
+          
+          # Por si acaso el sistema les puso extensiones diferentes en Mac
+          # buscamos cualquier cosa que se llame trinchete o trinito en la carpeta build
+          find Trinity-Launcher/build -name "trinchete" -type f -exec cp {} final_launcher/ \;
+          find Trinity-Launcher/build -name "trinito" -type f -exec cp {} final_launcher/ \;
 
-      - name: 4. Subir Solo Launcher
+          # Dar permisos de ejecución antes de empaquetar
+          chmod +x final_launcher/*
+
+      - name: 4. Subir Pack Trinity Final
         uses: actions/upload-artifact@v4
         with:
-          name: Trinity-Launcher-Intel
+          name: Trinity-Intel-Pack-Completo
           path: final_launcher/
+      
