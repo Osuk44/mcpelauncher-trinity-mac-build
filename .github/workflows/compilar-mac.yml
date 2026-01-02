@@ -1,73 +1,43 @@
-name: Compilar Mac Intel - Runner Nativo
+name: Compilar Solo Launcher Trinity (Intel)
 on: [workflow_dispatch]
 
 jobs:
-  build-macos:
-    # USAMOS EL NUEVO RUNNER ESPECÍFICO PARA INTEL
+  build-launcher:
     runs-on: macos-15-intel
     
     steps:
-      - name: 1. Instalar Dependencias (x86_64 Nativo)
+      - name: 1. Instalar Qt6 (Necesario para la interfaz)
         run: |
           brew update
-          brew install cmake ninja pkg-config qt6 sdl2 libzip libusb openssl curl
+          brew install cmake ninja pkg-config qt6
 
-      - name: 2. Compilar Motor (Client)
-        run: |
-          git clone --recursive https://codeberg.org/javiercplus/mcpelauncher-client-extend.git mcpelauncher
-          cd mcpelauncher
-          mkdir build && cd build
-          
-          cmake .. -GNinja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_OSX_ARCHITECTURES="x86_64" \
-            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
-            -DUSE_SYSTEM_CURL=ON \
-            -DUSE_SYSTEM_ZLIB=ON \
-            -DENABLE_XBL_WEBVIEW=ON \
-            -Wno-dev
-          
-          ninja
-
-      - name: 3. Compilar Herramientas (Extract y Webview)
-        run: |
-          # Extract
-          git clone https://github.com/minecraft-linux/mcpelauncher-extract.git
-          cd mcpelauncher-extract && mkdir build && cd build
-          cmake .. -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="x86_64" -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -Wno-dev 
-          ninja
-          cd ../..
-          
-          # Webview
-          git clone --recursive https://github.com/minecraft-linux/mcpelauncher-webview.git
-          cd mcpelauncher-webview && mkdir build && cd build
-          cmake .. -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="x86_64" -DCMAKE_PREFIX_PATH=$(brew --prefix qt6) -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -Wno-dev
-          ninja
-
-      - name: 4. Compilar Trinity (Interfaz)
+      - name: 2. Compilar Trinity (Interfaz)
         run: |
           git clone https://github.com/Trinity-LA/Trinity-Launcher.git
           cd Trinity-Launcher
-          # Fix para sistemas POSIX/Mac
+          # Aplicamos el parche de traducción para evitar errores de compilación
           sed -i '' 's/QDialogButtonBox::Cancelar/QDialogButtonBox::Cancel/g' src/TrinityLib/ui/windows/launcher_window.cpp || true
+          
           mkdir build && cd build
-          cmake .. -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="x86_64" -DCMAKE_PREFIX_PATH=$(brew --prefix qt6) -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -Wno-dev
+          # Configuramos apuntando a las librerías de Qt6 de la Mac Intel
+          cmake .. -GNinja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES="x86_64" \
+            -DCMAKE_PREFIX_PATH=$(brew --prefix qt6) \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -Wno-dev
           ninja
 
-      - name: 5. Recolectar Binarios
+      - name: 3. Recolectar Launcher
         run: |
-          mkdir -p final_output
-          # Buscamos los ejecutables finales de forma más agresiva
-          find . -name "mcpelauncher-client" -type f -perm +111 -exec cp {} final_output/ \;
-          find . -name "mcpelauncher-extract" -type f -perm +111 -exec cp {} final_output/ \;
-          find . -name "mcpelauncher-webview" -type f -perm +111 -exec cp {} final_output/ \;
-          find . -name "mcpelauncher-ui-qt" -type f -perm +111 -exec cp {} final_output/ \;
-          # Copiar bundles .app si existen
-          cp -R mcpelauncher/build/*.app final_output/ 2>/dev/null || true
-          cp -R Trinity-Launcher/build/*.app final_output/ 2>/dev/null || true
+          mkdir -p final_launcher
+          # Buscamos el ejecutable de la interfaz
+          find . -name "mcpelauncher-ui-qt" -type f -perm +111 -exec cp {} final_launcher/ \;
+          # También buscamos si se generó como una App de Mac
+          cp -R Trinity-Launcher/build/*.app final_launcher/ 2>/dev/null || true
 
-      - name: 6. Subir Pack
+      - name: 4. Subir Solo Launcher
         uses: actions/upload-artifact@v4
         with:
-          name: Minecraft-Mac-Intel-Final
-          path: final_output/
+          name: Trinity-Launcher-Intel
+          path: final_launcher/
