@@ -1,39 +1,34 @@
-name: Compilar Mac Intel - Fix Linker
+name: Compilar Mac Intel - Modo Nativo
 on: [workflow_dispatch]
 
 jobs:
   build-macos:
-    runs-on: macos-latest
+    # EL CAMBIO MÁGICO: Usamos macos-13 que es INTEL (x86_64) nativo.
+    # Ya no hay que emular ni forzar nada.
+    runs-on: macos-13
     
     steps:
-      - name: 1. Instalar Herramientas (Sin forzar librerías externas)
+      - name: 1. Instalar Dependencias (Versiones Intel Nativas)
         run: |
           brew update
-          # Instalamos solo lo básico para construir. 
-          # NO usamos curl/openssl de brew para linkear porque son ARM.
-          brew install cmake ninja pkg-config qt6 libzip libusb
+          # Al estar en macos-13, brew instala automáticamente versiones x86_64
+          brew install cmake ninja pkg-config qt6 sdl2 libzip libusb openssl curl
 
-      - name: 2. Compilar Motor (Client) - Full Internal Build
+      - name: 2. Compilar Motor (Client)
         run: |
           git clone --recursive https://codeberg.org/javiercplus/mcpelauncher-client-extend.git mcpelauncher
           cd mcpelauncher
           mkdir build && cd build
           
-          # FORZAMOS ARQUITECTURA INTEL EN TODO
-          # Añadimos -Wno-unused-command-line-argument para que no se queje de banderas repetidas
-          export CFLAGS="-arch x86_64 -D_DARWIN_C_SOURCE -Wno-unused-command-line-argument"
-          export CXXFLAGS="-arch x86_64 -D_DARWIN_C_SOURCE -Wno-unused-command-line-argument"
-          export LDFLAGS="-arch x86_64"
-
-          # Configuración:
-          # 1. Quitamos USE_SYSTEM_CURL/ZLIB (ahora construirá los suyos propios en x86_64)
-          # 2. CMAKE_ASM_COMPILER_WORKS=1: Evita que falle al chequear el ensamblador
+          # Como la máquina ya es Intel, quitamos todos los flags complejos.
+          # Usamos las librerías del sistema con confianza.
           cmake .. -GNinja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_OSX_ARCHITECTURES="x86_64" \
             -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DUSE_SYSTEM_CURL=ON \
+            -DUSE_SYSTEM_ZLIB=ON \
             -DENABLE_XBL_WEBVIEW=ON \
-            -DCMAKE_ASM_COMPILER_WORKS=1 \
             -Wno-dev
           
           ninja
@@ -43,12 +38,15 @@ jobs:
           # Extract
           git clone https://github.com/minecraft-linux/mcpelauncher-extract.git
           cd mcpelauncher-extract && mkdir build && cd build
-          cmake .. -GNinja -DCMAKE_OSX_ARCHITECTURES="x86_64" -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -Wno-dev && ninja
+          cmake .. -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="x86_64" -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -Wno-dev 
+          ninja
           cd ../..
+          
           # Webview
           git clone --recursive https://github.com/minecraft-linux/mcpelauncher-webview.git
           cd mcpelauncher-webview && mkdir build && cd build
-          cmake .. -GNinja -DCMAKE_OSX_ARCHITECTURES="x86_64" -DCMAKE_PREFIX_PATH=$(brew --prefix qt6) -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -Wno-dev && ninja
+          cmake .. -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="x86_64" -DCMAKE_PREFIX_PATH=$(brew --prefix qt6) -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -Wno-dev
+          ninja
 
       - name: 4. Compilar Trinity (Interfaz)
         run: |
@@ -56,7 +54,7 @@ jobs:
           cd Trinity-Launcher
           sed -i '' 's/QDialogButtonBox::Cancelar/QDialogButtonBox::Cancel/g' src/TrinityLib/ui/windows/launcher_window.cpp
           mkdir build && cd build
-          cmake .. -GNinja -DCMAKE_OSX_ARCHITECTURES="x86_64" -DCMAKE_PREFIX_PATH=$(brew --prefix qt6) -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -Wno-dev
+          cmake .. -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="x86_64" -DCMAKE_PREFIX_PATH=$(brew --prefix qt6) -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -Wno-dev
           ninja
 
       - name: 5. Recolectar Todo
@@ -71,5 +69,5 @@ jobs:
       - name: 6. Subir Pack
         uses: actions/upload-artifact@v4
         with:
-          name: Minecraft-Intel-Super-Pack
+          name: Minecraft-Mac-Intel-Nativo
           path: final_output/
