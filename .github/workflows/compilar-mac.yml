@@ -35,7 +35,7 @@ jobs:
       - name: 5. Recolectar archivos para el Pack
         run: |
           mkdir -p final_output
-          # Motor principal
+          # Motor principal (Client)
           find mcpelauncher/build -name "mcpelauncher-client" -exec cp {} final_output/ \;
           # Lanzador Trinity (UI)
           find mcpelauncher/build -name "mcpelauncher-ui-qt" -exec cp {} final_output/ \;
@@ -43,7 +43,7 @@ jobs:
           find mcpelauncher/build -name "mcpelauncher-extract" -exec cp {} final_output/ \;
           # Reportador de errores
           find mcpelauncher/build -name "mcpelauncher-error" -exec cp {} final_output/ \;
-          # Copiar Apps completas si existen
+          # Copiar Apps completas de Mac si existen
           find mcpelauncher/build -name "*.app" -exec cp -r {} final_output/ \;
 
       - name: 6. Subir Pack Final a GitHub
