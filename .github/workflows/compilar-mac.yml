@@ -1,4 +1,4 @@
-name: Compilar Minecraft Mac Full
+name: Compilar Trinity, Extract y Webview
 on: [workflow_dispatch]
 
 jobs:
@@ -6,49 +6,55 @@ jobs:
     runs-on: macos-latest
     
     steps:
-      - name: 1. Instalar dependencias de Apple y Qt6
+      - name: 1. Instalar Dependencias (Incluyendo WebEngine)
         run: |
           brew update
-          brew install cmake ninja pkg-config qt6 sdl2 libpng jpeg-turbo libusb
+          # qt6-webengine es vital para el webview de inicio de sesión
+          brew install cmake ninja pkg-config qt6 sdl2 libzip libusb
 
-      - name: 2. Clonar codigo (Recursivo para submódulos)
+      - name: 2. Compilar mcpelauncher-extract
         run: |
-          git clone --recursive https://codeberg.org/javiercplus/mcpelauncher-client-extend.git mcpelauncher
+          git clone https://github.com/minecraft-linux/mcpelauncher-extract.git
+          cd mcpelauncher-extract
+          mkdir build && cd build
+          cmake .. -GNinja -DCMAKE_BUILD_TYPE=Release
+          ninja
 
-      - name: 3. Configurar CMake con todas las herramientas
+      - name: 3. Compilar mcpelauncher-webview (Para Login)
         run: |
-          cd mcpelauncher
+          git clone --recursive https://github.com/minecraft-linux/mcpelauncher-webview.git
+          cd mcpelauncher-webview
+          mkdir build && cd build
+          # Forzamos la ruta de Qt6 para que encuentre el WebEngine
+          cmake .. -GNinja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH=$(brew --prefix qt6)
+          ninja
+
+      - name: 4. Compilar Trinity Launcher
+        run: |
+          git clone https://github.com/Trinity-LA/Trinity-Launcher.git
+          cd Trinity-Launcher
+          # Configuramos manualmente para asegurar compatibilidad con el webview
           mkdir build && cd build
           cmake .. -GNinja \
             -DCMAKE_BUILD_TYPE=Release \
-            -DENABLE_DEV_INSTALL=ON \
-            -DBUILD_UI=ON \
-            -DENABLE_XBL_WEBVIEW=ON \
-            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
             -DCMAKE_PREFIX_PATH=$(brew --prefix qt6)
-
-      - name: 4. Compilacion General (Ninja)
-        run: |
-          cd mcpelauncher/build
           ninja
 
-      - name: 5. Recolectar archivos para el Pack
+      - name: 5. Organizar Todo el Pack
         run: |
           mkdir -p final_output
-          # Motor principal (Client)
-          find mcpelauncher/build -name "mcpelauncher-client" -exec cp {} final_output/ \;
-          # Lanzador Trinity (UI)
-          find mcpelauncher/build -name "mcpelauncher-ui-qt" -exec cp {} final_output/ \;
-          # Herramienta Trinito (Extract)
-          find mcpelauncher/build -name "mcpelauncher-extract" -exec cp {} final_output/ \;
-          # Reportador de errores
-          find mcpelauncher/build -name "mcpelauncher-error" -exec cp {} final_output/ \;
-          # Copiar Apps completas de Mac si existen
-          find mcpelauncher/build -name "*.app" -exec cp -r {} final_output/ \;
+          # Buscamos y copiamos los 3 componentes clave
+          find mcpelauncher-extract/build -name "mcpelauncher-extract" -exec cp {} final_output/ \;
+          find mcpelauncher-webview/build -name "mcpelauncher-webview" -exec cp {} final_output/ \;
+          find Trinity-Launcher/build -name "mcpelauncher-ui-qt" -exec cp {} final_output/ \;
+          # Si se crearon paquetes .app completos
+          find . -name "*.app" -exec cp -r {} final_output/ \;
 
-      - name: 6. Subir Pack Final a GitHub
+      - name: 6. Publicar Pack Completo
         uses: actions/upload-artifact@v4
         with:
-          name: Minecraft-Mac-Intel-Full-Pack
+          name: Minecraft-Mac-Trinity-Webview-Extract
           path: final_output/
           if-no-files-found: error
