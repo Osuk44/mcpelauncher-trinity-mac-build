@@ -1,17 +1,15 @@
-name: Compilar Mac Intel - Modo Nativo
+name: Compilar Mac Intel - Runner Nativo
 on: [workflow_dispatch]
 
 jobs:
   build-macos:
-    # EL CAMBIO MÁGICO: Usamos macos-13 que es INTEL (x86_64) nativo.
-    # Ya no hay que emular ni forzar nada.
-    runs-on: macos-13
+    # USAMOS EL NUEVO RUNNER ESPECÍFICO PARA INTEL
+    runs-on: macos-15-intel
     
     steps:
-      - name: 1. Instalar Dependencias (Versiones Intel Nativas)
+      - name: 1. Instalar Dependencias (x86_64 Nativo)
         run: |
           brew update
-          # Al estar en macos-13, brew instala automáticamente versiones x86_64
           brew install cmake ninja pkg-config qt6 sdl2 libzip libusb openssl curl
 
       - name: 2. Compilar Motor (Client)
@@ -20,8 +18,6 @@ jobs:
           cd mcpelauncher
           mkdir build && cd build
           
-          # Como la máquina ya es Intel, quitamos todos los flags complejos.
-          # Usamos las librerías del sistema con confianza.
           cmake .. -GNinja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_OSX_ARCHITECTURES="x86_64" \
@@ -52,22 +48,26 @@ jobs:
         run: |
           git clone https://github.com/Trinity-LA/Trinity-Launcher.git
           cd Trinity-Launcher
-          sed -i '' 's/QDialogButtonBox::Cancelar/QDialogButtonBox::Cancel/g' src/TrinityLib/ui/windows/launcher_window.cpp
+          # Fix para sistemas POSIX/Mac
+          sed -i '' 's/QDialogButtonBox::Cancelar/QDialogButtonBox::Cancel/g' src/TrinityLib/ui/windows/launcher_window.cpp || true
           mkdir build && cd build
           cmake .. -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="x86_64" -DCMAKE_PREFIX_PATH=$(brew --prefix qt6) -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -Wno-dev
           ninja
 
-      - name: 5. Recolectar Todo
+      - name: 5. Recolectar Binarios
         run: |
           mkdir -p final_output
-          find . -type f -name "mcpelauncher-client" -exec cp {} final_output/ \;
-          find . -type f -name "mcpelauncher-extract" -exec cp {} final_output/ \;
-          find . -type f -name "mcpelauncher-webview" -exec cp {} final_output/ \;
-          find . -type f -name "mcpelauncher-ui-qt" -exec cp {} final_output/ \;
-          find . -name "*.app" -exec cp -r {} final_output/ \;
+          # Buscamos los ejecutables finales de forma más agresiva
+          find . -name "mcpelauncher-client" -type f -perm +111 -exec cp {} final_output/ \;
+          find . -name "mcpelauncher-extract" -type f -perm +111 -exec cp {} final_output/ \;
+          find . -name "mcpelauncher-webview" -type f -perm +111 -exec cp {} final_output/ \;
+          find . -name "mcpelauncher-ui-qt" -type f -perm +111 -exec cp {} final_output/ \;
+          # Copiar bundles .app si existen
+          cp -R mcpelauncher/build/*.app final_output/ 2>/dev/null || true
+          cp -R Trinity-Launcher/build/*.app final_output/ 2>/dev/null || true
 
       - name: 6. Subir Pack
         uses: actions/upload-artifact@v4
         with:
-          name: Minecraft-Mac-Intel-Nativo
+          name: Minecraft-Mac-Intel-Final
           path: final_output/
