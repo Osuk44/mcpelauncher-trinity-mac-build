@@ -11,14 +11,17 @@ jobs:
           brew update
           brew install cmake ninja pkg-config qt6 sdl2 libzip libusb openssl curl
 
-      - name: 2. Compilar Motor (Client) - Sin cURL interno
+      - name: 2. Compilar Motor (Client) - Fix Arquitectura Intel
         run: |
           git clone --recursive https://codeberg.org/javiercplus/mcpelauncher-client-extend.git mcpelauncher
           cd mcpelauncher
           mkdir build && cd build
           
-          # Forzamos el uso de librerías del sistema para que Ninja no intente compilar las suyas
-          # Usamos -Wno-dev para ignorar los avisos que mencionaste
+          # FORZAMOS las banderas de arquitectura para evitar el error de SDL3
+          export CFLAGS="-arch x86_64"
+          export CXXFLAGS="-arch x86_64"
+          export LDFLAGS="-arch x86_64"
+
           cmake .. -GNinja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_OSX_ARCHITECTURES="x86_64" \
@@ -26,9 +29,7 @@ jobs:
             -DUSE_SYSTEM_CURL=ON \
             -DUSE_SYSTEM_ZLIB=ON \
             -DENABLE_XBL_WEBVIEW=ON \
-            -Wno-dev \
-            -DCURL_INCLUDE_DIR=$(brew --prefix curl)/include \
-            -DCURL_LIBRARY=$(brew --prefix curl)/lib/libcurl.dylib
+            -Wno-dev
           ninja
 
       - name: 3. Compilar Herramientas (Extract y Webview)
