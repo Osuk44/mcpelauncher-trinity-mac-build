@@ -1,0 +1,47 @@
+name: Compilar OLS
+
+on:
+  workflow_dispatch: # Esto te permite activar la compilación manualmente con un botón
+
+jobs:
+  build:
+    name: Compilar para ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: ols-linux
+            build_cmd: ./build.sh
+          - os: windows-latest
+            artifact_name: ols-windows.exe
+            build_cmd: .\build.bat
+          - os: macos-latest
+            artifact_name: ols-macos
+            build_cmd: ./build.sh
+
+    steps:
+    # 1. Clonar el repositorio oficial de OLS
+    - name: Clonar OLS
+      uses: actions/checkout@v4
+      with:
+        repository: 'DanielGavin/ols'
+
+    # 2. Instalar Odin (usando la acción oficial de la comunidad de Odin)
+    - name: Instalar Odin
+      uses: laytan/setup-odin@v2
+      with:
+        odin-version: 'latest'
+
+    # 3. Compilar el proyecto
+    - name: Compilar binario
+      run: ${{ matrix.build_cmd }}
+
+    # 4. Guardar el archivo resultante para que lo puedas descargar
+    - name: Subir Binario Terminado
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.artifact_name }}
+        path: |
+          ols
+          ols.exe
