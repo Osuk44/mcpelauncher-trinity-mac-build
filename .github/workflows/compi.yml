@@ -13,7 +13,7 @@ jobs:
           - os: ubuntu-latest
             artifact_name: ols-linux
             build_cmd: |
-              sed -i 's/odin build src/odin build src -microarch:generic/g' build.sh
+              sed -i 's/-microarch:[^ ]*/-microarch:generic/g' build.sh
               ./build.sh
 
     steps:
@@ -22,7 +22,7 @@ jobs:
       with:
         repository: 'DanielGavin/ols'
 
-    # Usamos una versión estable de Odin
+    # Instala la última versión estable de Odin
     - name: Instalar Odin
       uses: laytan/setup-odin@v2
       with:
